@@ -23,8 +23,8 @@ model:
 
 # MCMC tuning
 mcmc:
-  nwalkers: 20
-  nsteps: 100
+  nwalkers: 12
+  nsteps: 3
   
 # Initial parameters for MCMC
 init:

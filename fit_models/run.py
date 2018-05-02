@@ -13,8 +13,6 @@ def lnlike(theta):
 	if type(theta) == np.ndarray:
 		theta = dict(zip(theta_keys, theta))
 
-	print('\n theta', theta, '\n')
-
 	# mdl  = ap.makeModel(params=theta, fiber=124)
 	data = ap.Spectrum(id=ap.data['ID'], type=ap.data["dtype"], visit=ap.data['visit'])
 
@@ -61,27 +59,57 @@ if __name__ == "__main__":
 		print('\nError: config.yaml not found in the current working directory. \
 			Using default file found inside apogee_tools.\n')
 
-	init_param, step_param, init_theta, step_theta, fiber = ap.initialize()
+	# init_param, step_param, init_theta, step_theta, fiber = ap.initialize()
 
-	theta_keys = list(init_theta.keys())
-	theta_vals = list(init_theta.values())
+	# theta_keys = list(init_theta.keys())
+	# theta_vals = list(init_theta.values())
 
-	ndim = len(init_theta)
-	nsteps = ap.mcmc["nsteps"]
-	nwalkers = ap.mcmc["nwalkers"]
+	# ndim = len(init_theta)
+	# nsteps = ap.mcmc["nsteps"]
+	# nwalkers = ap.mcmc["nwalkers"]
 
-	print(lnlike(init_theta))
+	# # print(lnlike(init_theta))
 
-	# mdl = makeModel(params=init_theta, fiber=fiber)
+	# # mdl = makeModel(params=init_theta, fiber=fiber)
 
 	# pos = [list(init_theta.values()) + 1e-4*np.random.randn(ndim) for i in range(nwalkers)]
 
 	# sampler = emcee.EnsembleSampler(nwalkers, ndim, lnlike)
 	# sampler.run_mcmc(pos, nsteps)
 
-	# samples = sampler.chain[:, 50:, :].reshape((-1, ndim))
+	# np.save('sampler_chain', sampler.chain[:, :, :])
 
-	# fig = corner.corner(samples, labels=theta_keys, truths=theta_vals)
-	# fig.savefig("triangle.png")
+	# samples = sampler.chain[:, :, :].reshape((-1, ndim))
+
+	# np.save('samples', samples)
+
+	# try:
+	# 	fig = corner.corner(samples, labels=theta_keys, truths=theta_vals)
+	# 	fig.savefig("triangle.png")
+	# except:
+	# 	print('traingle plot failed')
+
+	ndim = 6
+	sampler_chain = np.load('sampler_chain.npy')
+	lbl = ['Teff', 'logg', '[Fe/H]', 'rv', 'vsini', r'$\alpha$']
+
+	# print(sampler_chain.T)
+
+	fig, ax = plt.subplots(ndim, sharex=True, figsize=[8,12])
+	for i in range(ndim):
+		ax[i].plot(sampler_chain.T[i], '-k', alpha=0.2);
+		ax[i].set_ylabel(str(lbl[i]))
+		if i == ndim:
+			ax[i].set_xlabel(step)
+		# ax[i].ticklabel_format(style='plain')
+		# ax[i].get_xaxis().get_major_formatter().set_useOffset(False)
+		# ax[i].get_xaxis().get_major_formatter().set_scientific(False)
+	plt.tight_layout()
+	plt.savefig('Walkers.png', dpi=300, bbox_inches='tight')
+	plt.show()
+	plt.close()
 
 	# fit = ap.fitMCMC(init_par, step_par, fiber)
+
+
+	# 33m for (12 walkers) * (3 steps) => 41 sec/step
