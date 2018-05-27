@@ -1,22 +1,35 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import os
 import emcee
 import apogee_tools as ap
 import corner
+import argparse
+import os
 
 
-def lnlike(theta):
+# =============================================================
+# MCMC prior and likelihood functions
+# =============================================================
 
+def lnlike(theta, lsf, tell_sp):
+
+	"""
+	Log-likelihood, computed from chi-squared
+	"""
+
+	# If theta is entered as a list, make it into a dictionary
 	theta_keys = [key for key in ap.init.keys()]
 	if type(theta) == np.ndarray:
 		theta = dict(zip(theta_keys, theta))
 
-	# mdl  = ap.makeModel(params=theta, fiber=124)
-	data = ap.Spectrum(id=ap.data['ID'], type=ap.data["dtype"], visit=ap.data['visit'])
+	# Choose the appropriate Spectrum class to read the data
+	if ap.data['instrument'] == 'APOGEE':
+		data = ap.Apogee(id=ap.data['ID'], type=ap.data["dtype"], visit=ap.data['visit'])
+	else:
+		print('No Spectrum class to read data for instrument', ap.data['instrument'])
 
-	chisq = ap.returnModelFit(data, theta, fiber=124)
+	chisq = ap.returnModelFit(data, theta, lsf=lsf, telluric=tell_sp)
 
 	print('\n chisq', chisq, '\n')
 
@@ -25,6 +38,14 @@ def lnlike(theta):
 
 def lnprior(theta):
 
+	"""
+	Specifies a flat prior
+	"""
+
+	# keys = theta.keys()
+	theta_keys = [key for key in ap.init.keys()]
+	if type(theta) == np.ndarray:
+		theta = dict(zip(theta_keys, theta))
 	keys = theta.keys()
 
 	for k in keys:
@@ -36,13 +57,13 @@ def lnprior(theta):
 	return 0.0
 
 
-def lnprob(theta):
+def lnprob(theta, lsf, tell_sp):
 
 	lnp = lnprior(theta)
-	if not np.isfinite(lp):
+	if not np.isfinite(lnp):
 	    return -np.inf
 
-	return lnp + lnlike(theta, x, y, yerr)
+	return lnp + lnlike(theta, lsf, tell_sp)
 
 
 #########################################################################################
@@ -59,57 +80,105 @@ if __name__ == "__main__":
 		print('\nError: config.yaml not found in the current working directory. \
 			Using default file found inside apogee_tools.\n')
 
-	# init_param, step_param, init_theta, step_theta, fiber = ap.initialize()
+	# =============================================================
+	# Command line input
+	# =============================================================
 
-	# theta_keys = list(init_theta.keys())
-	# theta_vals = list(init_theta.values())
+	parser = argparse.ArgumentParser(description='Specify plotting directory.')
+	parser.add_argument("plot", action="store", type=str)
+	args = parser.parse_args()
 
-	# ndim = len(init_theta)
-	# nsteps = ap.mcmc["nsteps"]
-	# nwalkers = ap.mcmc["nwalkers"]
 
-	# # print(lnlike(init_theta))
+	# =============================================================
+	# Pre-MCMC initialization
+	# =============================================================
 
-	# # mdl = makeModel(params=init_theta, fiber=fiber)
+	init_param, step_param, init_theta, step_theta, fiber, tell_sp, lsf = ap.initialize()
 
-	# pos = [list(init_theta.values()) + 1e-4*np.random.randn(ndim) for i in range(nwalkers)]
+	theta_keys = list(init_theta.keys())
+	theta_vals = list(init_theta.values())
 
-	# sampler = emcee.EnsembleSampler(nwalkers, ndim, lnlike)
-	# sampler.run_mcmc(pos, nsteps)
+	ndim = len(init_theta)
+	nsteps = ap.mcmc["nsteps"]
+	nwalkers = ap.mcmc["nwalkers"]
 
-	# np.save('sampler_chain', sampler.chain[:, :, :])
 
-	# samples = sampler.chain[:, :, :].reshape((-1, ndim))
+	# =============================================================
+	# Testing...
+	# =============================================================
 
-	# np.save('samples', samples)
+	# print(lnprob(init_theta, lsf, tell_sp))
 
-	# try:
-	# 	fig = corner.corner(samples, labels=theta_keys, truths=theta_vals)
-	# 	fig.savefig("triangle.png")
-	# except:
-	# 	print('traingle plot failed')
+	# data = ap.Apogee(id=ap.data['ID'], type=ap.data["dtype"], visit=ap.data['visit'])
+	# # mdl = ap.makeModel(params=init_param, lsf=lsf, telluric=tell_sp, plot=True)
+	# chi_sq = ap.returnModelFit(data, init_param, lsf=lsf, plot=True)
 
-	ndim = 6
-	sampler_chain = np.load('sampler_chain.npy')
+	# print(r'$\chi^2$', chi_sq)
+
+
+	# =============================================================
+	# Run MCMC!
+	# =============================================================
+
+	if ap.out["mcmc_sampler"] == True:
+
+		pos = [list(init_theta.values()) + 1e-4*np.random.randn(ndim) for i in range(nwalkers)]
+
+		sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, args=(lsf, tell_sp))
+		sampler.run_mcmc(pos, nsteps)
+
+		np.save('sampler_chain', sampler.chain[:, :, :])
+
+		samples = sampler.chain[:, :, :].reshape((-1, ndim))
+
+		np.save('samples', samples)
+
+
+	# =============================================================
+	# Output corner/walker plots
+	# =============================================================
+
 	lbl = ['Teff', 'logg', '[Fe/H]', 'rv', 'vsini', r'$\alpha$']
 
-	# print(sampler_chain.T)
+	if ap.out["corner"] == True:
 
-	fig, ax = plt.subplots(ndim, sharex=True, figsize=[8,12])
-	for i in range(ndim):
-		ax[i].plot(sampler_chain.T[i], '-k', alpha=0.2);
-		ax[i].set_ylabel(str(lbl[i]))
-		if i == ndim:
-			ax[i].set_xlabel(step)
-		# ax[i].ticklabel_format(style='plain')
-		# ax[i].get_xaxis().get_major_formatter().set_useOffset(False)
-		# ax[i].get_xaxis().get_major_formatter().set_scientific(False)
-	plt.tight_layout()
-	plt.savefig('Walkers.png', dpi=300, bbox_inches='tight')
-	plt.show()
-	plt.close()
+		try:
+			fig = corner.corner(samples, labels=lbl, truths=theta_vals)
+			fig.savefig("triangle.png")
 
-	# fit = ap.fitMCMC(init_par, step_par, fiber)
+		except:
+			print('Traingle plot failed.')
 
 
-	# 33m for (12 walkers) * (3 steps) => 41 sec/step
+	if 'corner' in args.plot:
+
+		try:
+			samples = np.load('samples.npy')
+			fig = corner.corner(samples, labels=lbl, truths=theta_vals)
+			fig.savefig("triangle.png")
+
+		except:
+			print('Traingle plot failed.')
+
+
+	if (ap.out["walkers"] == True) or ('walkers' in args.plot):
+
+		try:
+			sampler_chain = np.load('sampler_chain.npy')
+
+			ndim = len(sampler.chain.T)
+
+			fig, ax = plt.subplots(ndim, sharex=True, figsize=[8,12])
+			for i in range(ndim):
+				ax[i].plot(sampler_chain.T[i], '-k', alpha=0.2);
+				ax[i].set_ylabel(str(lbl[i]))
+				if i == ndim:
+					ax[i].set_xlabel(step)
+			plt.tight_layout()
+			plt.savefig('Walkers.png', dpi=300, bbox_inches='tight')
+			plt.show()
+			plt.close()
+
+		except:
+			print('Corner plot failed.')
+
