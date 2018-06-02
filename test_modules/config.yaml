@@ -1,0 +1,63 @@
+# Instrument specifications
+data:
+  instrument: "APOGEE"
+  data_path: "default" # defaults to $APOGEE_DATA path (see setup documentation), unless otherwise specified
+  ID: "2M01195227+8409327"
+  orders: [[15200,15800],[15860,16425],[16475,16935]] # wave ranges, and orders
+  dtype: "ap1d"
+  visit: 1
+  sigma_clip: [.3,.01]
+
+# Make sure this config.yaml and run.py files are placed in your input directory
+# I recommend copying config.yaml and run.py to a path external to apogee_tools
+workdir: 
+  input: "/home/jess/Desktop/Research/FAST/fit_models"
+  output: "/home/jess/Desktop/Research/FAST/fit_models/output"
+  
+out:
+  mcmc_sampler: False
+  corner: False
+  walkers: False
+  print_report: True
+
+# Specify which parameters will be sampled by MCMC
+# otherwise parameters will be fixed at 'init' values
+model:
+  grid_name: "PHOENIX" #directory: phoenix/apogee/order
+  theta: ['teff', 'logg', 'fe_h', 'rv', 'vsini', 'alpha']
+
+fix_param: # specify fixed parameters (not sampled by MCMC)
+  airmass: 1.0  # airmass of telluric model, either 1.0 or 1.5
+  cont_deg: 5   # continuum polynomial degree
+
+# MCMC tuning
+mcmc:
+  nwalkers: 12
+  nsteps: 3
+  
+# Initial parameters for MCMC
+init:
+  teff: 3500
+  logg: 4.50
+  fe_h: 0.0
+  rv: -4.77
+  vsini: 5.79
+  alpha: 1.0
+
+# Step parameters for MCMC
+step:
+  teff: 1
+  logg: .01
+  fe_h: .01
+  rv: .1
+  vsini: .1
+  alpha: .01
+
+# Prior ranges for MCMC (for flat prior)
+prior:
+  teff: [2500, 5500]
+  logg: [0.0, 5.5]
+  fe_h: [-1.0, 1.0]
+  rv: [-200, 200]
+  vsini: [0, 200]
+  alpha: [0, 5]

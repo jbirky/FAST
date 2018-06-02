@@ -1,0 +1,37 @@
+A proposed plan for generalizing apogee_tools for other instruments:
+
+Currently my Spectrum() class contains very specialized code for reading APOGEE file types, but I'm thinking we can separate this into two kinds of classes:
+	1. read() class - this will be an instrument specific class that reads the files and returns spectrum info (like APOGEE_read() and NIRSPEC_read())
+	2. spectrum() class - this will be a general, non-instrument specific class that will be used after read(), and will be the input/output object for all of the forward modelling functions; contains plot function and masking function (and others?)
+
+Introduce new files:
+	1. config.yaml - stores user input model variables (inspired by the Starfish code)
+	2. initialize.py - read in config.yaml variables, choose appropriate read() class and lsf() function, return spectrum object (will be the first function of run.py)
+	3. run.py - sequence of functions, like: initialize.py -> model.py -> mcmc.py -> return fit!
+	4. instrument_tools.yaml - stores fixed instrument info (like wl range, resolution, etc.)
+
+Proposed user work flow:
+	1. copy config.yaml and run.py to an external directory
+	2. customize config.yaml (with instrument info, model grid type, resolution, MCMC initial parameters, etc.)
+	3. customize run.py (choose what functions to run--just make model, run full MCMC fit, etc.)
+	4. cd to directory, open terminal -> 'python run.py'
+
+Adding in new models:
+	- to do: develop cannon_tools functions, so users can read in grids and return coefficients which can be used by the grid interpolation function
+	- to do: cannon testing - what degree polynomial is best for interpolation?
+	- model files are huge (>3gb in compressed hdf5 file, for full 500k resolution), but just storing the cannon coefficients is <1mb (good for speed & github storage)
+	- I've added a readme file in the libraries folder documenting current model files
+
+Adding in new instruments:
+	1. add instrument information to instrument_tools.yaml
+	2. write your own read() class to read your files and extract spectrum info (wl, flux, etc)
+	3. add your lsf function
+
+Other comments:
+	- so the only instrument-specific classes/definitions will be read() and lsf() (and others?)
+	- this setup avoids having to write inheritance class structures
+	- config file standardizes how user input is fomatted (don't have to deal with dictionaries and choosing key word arguments for each function you use) - hopefully can simplify user workflow & save on coding annoyances
+
+Questions:
+	- a name for this package?
+	- how to use github safely?

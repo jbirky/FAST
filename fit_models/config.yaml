@@ -30,6 +30,8 @@ model:
 fix_param: # specify fixed parameters (not sampled by MCMC)
   airmass: 1.0  # airmass of telluric model, either 1.0 or 1.5
   cont_deg: 5   # continuum polynomial degree
+  interp_method: "splat" # or "cannon"
+  resample_method: "fast" # or "splat"
 
 # MCMC tuning
 mcmc:
